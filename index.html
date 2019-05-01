@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Chat App</title>
+    <link href="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.css" type="text/css"
+        rel="stylesheet">
+    <!-- <link rel='stylesheet' href='/stylesheets/style.css' /> -->
+
+    <script src="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <style>
+        body {
+            padding: 0px;
+            margin: 0px;
+            font: 14px "Lucida Grande", Helvetica, Arial, sans-serif;
+        }
+
+        .chat_index {
+            float: left;
+            padding: 10px;
+            width: 250px;
+            height: 620px;
+            background-color: greenyellow;
+        }
+
+        .chat_img img {
+            height: 10vh;
+            padding-top: 1px;
+        }
+
+        .chat_user {
+            margin: -20px 0 0 55px;
+        }
+
+        #contertWrap {
+            display: none;
+        }
+
+        #chatWrap {
+            float: left;
+            border: 1px red solid;
+            overflow: auto;
+            width: 33.5vw;
+        }
+
+        input {
+            height: 33px;
+        }
+
+        .chat_ib h5 {
+            font-size: 23px;
+            color: #464646;
+            margin: 23px 0 8px 34px;
+        }
+
+        .chat_ib h5 span {
+            font-size: 13px;
+            float: right;
+        }
+
+        .chat_ib p {
+            font-size: 14px;
+            color: #989898;
+            margin: auto
+        }
+
+        .chat_img {
+            float: left;
+            width: 11%;
+        }
+
+        .chat_ib {
+            float: left;
+            padding: 0 0 0 15px;
+            width: 88%;
+        }
+
+        .chat_people {
+            overflow: hidden;
+            clear: both;
+        }
+
+        .chat_list {
+            border-bottom: 1px solid #c4c4c4;
+            margin: 0;
+            padding: 18px 16px 10px;
+        }
+
+        .seeAll {
+            background: #F6F7F8;
+            font-size: 20px;
+            font-weight: 700;
+            border-top: solid 1px rgba(100, 100, 100, .3);
+            text-align: center;
+        }
+
+        #nickWrap {
+            text-align: center;
+        }
+
+        #chat {
+            height: 562px;
+            color: blue;
+        }
+
+        #chat div {
+            color: darkorchid;
+            text-align: right;
+        }
+
+        #chat div div {
+            color: blue;
+            float: left;
+        }
+    </style>
+</head>
+
+<body class="m-auto">
+    <div id="nickWrap">
+        <p>Enter username:</p>
+        <p id='nickError'></p>
+        <form id='setNick'>
+            <input size="35" id='nickname'>
+            <input type='submit'>
+        </form>
+    </div>
+
+    <div id='contertWrap'>
+
+        <div class="chat_index">
+            <div id="hider" class="seeAll"></div>
+            <div id='user'></div>
+        </div>
+        <div id='chatWrap'>
+            <div id='send' class="seeAll"></div>
+            <div id="chat" style="height: 562px;"></div>
+            <form id="send-message" style="position: absolute;">
+                <input size="50" id=message>
+                <input type="submit">
+            </form>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        $("document").ready(function () {
+            var chatHistery = {};
+            var mySelfId = "";
+            var socket = io.connect();
+            var $nickForm = $('#setNick');
+            var $nickError = $('#nickError');
+            var $nickBox = $('#nickname');
+            var $users = $('#user');
+            var $messageForm = $('#send-message');
+            var $messageBox = $('#message');
+            var $chat = $('#chat');
+
+            $('#user').on('click', '.chat_list', '.chat_people', function () {
+                $('#send').text($(this).children()[0].id);
+                var userHisterys = localStorage.getItem(mySelfId);
+                $chat.clone();
+                $chat.html('</br>');
+                var userHistery = userHisterys ? JSON.parse(userHisterys)[$(this).children()[0].id] ? JSON.parse(userHisterys)[$(this).children()[0].id] : 0 : 0 ? JSON.parse(userHisterys)[$(this).children()[0].id] : 0;
+                if (userHistery.length > 0) {
+                    $chat.html('<div>' + userHistery.join('</br>') + '</br></div>');
+                }
+            });
+
+            $nickForm.submit(function (e) {
+                e.preventDefault();
+                $('#hider').text($nickBox.val());
+                mySelfId = $nickBox.val();
+                socket.emit('newUser', $nickBox.val(), function (data) {
+                    if (data) {
+                        $('#nickWrap').hide();
+                        $('#contertWrap').show();
+                    } else {
+                        $nickError.html('That username is already taken! Try again');
+                    }
+                });
+                $nickBox.val('');
+            })
+
+            $messageForm.submit(function (e) {
+                var friend = $('#send').text();
+                e.preventDefault();
+                socket.emit('sendMessage', friend, $messageBox.val(), function (data) {
+                    console.log(data);
+                });
+                chatHistery.createAndUpdate(friend, $messageBox.val());
+                localStorage.setItem(mySelfId, JSON.stringify(chatHistery));
+                $messageBox.val('');
+            });
+
+            socket.on('userNames', function (data) {
+                var htm = '';
+                for (var i = 0; i < data.length; i++) {
+                    if (mySelfId !== data[i]) {
+                        htm += `<div class="chat_list">
+                    <div class="chat_people" id="${data[i]}">
+                        <div class="chat_img"> <img src="https://ptetutorials.com/images/user-profile.png" alt="sunil">
+                        </div>
+                        <div class="chat_ib">
+                            <h5>
+                               <b value="${data[i]}"> ${data[i]}</b>
+                            </h5>
+                        </div>
+                        <input type="hidden" class="u" value="${data[i]}" />
+                    </div>
+                </div>`;
+                    }
+                }
+
+                $users.html(htm);
+            });
+
+            socket.on('receiveMessage', function (data) {
+                chatHistery.createAndUpdate(data.nick, '<div>' + data.mess + '</div>');
+                localStorage.setItem(mySelfId, JSON.stringify(chatHistery));
+                $chat.append('<b>' + data.nick + '</b> : ' + data.mess + '</br>');
+            });
+            socket.on('mySelfMessage', function (data) {
+                $chat.append('<div>' + data.mess + ' : <b>' + data.nick + '</b></div></br>');
+            });
+            socket.on('newMessage', function (data) {
+                $chat.append('<b>' + data.nick + '</b> : ' + data.mess + '</br>');
+            });
+            chatHistery.createAndUpdate = function (key, valu) {
+                if (key in this) {
+                    this[key].push(valu);
+                } else {
+                    this[key] = [valu];
+                }
+                return this;
+            }
+        });
+    </script>
+</body>
+
+</html>
